@@ -1,49 +1,28 @@
-{
-  This unit is a temporary placeholder for the Go 'sha3' package.
-  It provides a minimal implementation to allow the conversion of dependent units.
-}
 unit V.Crypto.SHA3;
 
 interface
 
 uses
-  System.SysUtils, V.Crypto.Blake2b; // Reusing IHash from Blake2b for simplicity
+  System.SysUtils;
 
-// NewLegacyKeccak256 returns a new Keccak-256 hash.
-function NewLegacyKeccak256: IHash;
+type
+  IState = interface
+    ['{C3D4E5F6-A7B8-4C8D-9E8F-706B5C4D3E2C}']
+    // This is a placeholder for the ShakeHash interface from Go's sha3 package.
+  end;
+
+function NewShake256: IState;
 
 implementation
 
 type
-  TKeccak256 = class(TInterfacedObject, IHash)
-  public
-    procedure Write(const data: TBytes);
-    function Sum(const b: TBytes): TBytes;
-    procedure Reset;
+  TShake256 = class(TInterfacedObject, IState)
+    // Placeholder implementation
   end;
 
-procedure TKeccak256.Write(const data: TBytes);
+function NewShake256: IState;
 begin
-  // Placeholder implementation
-end;
-
-function TKeccak256.Sum(const b: TBytes): TBytes;
-var
-  hashResult: TBytes;
-begin
-  SetLength(hashResult, 32); // Keccak-256 produces a 32-byte hash
-  FillChar(hashResult[0], 32, 0);
-  Result := b + hashResult;
-end;
-
-procedure TKeccak256.Reset;
-begin
-  // Placeholder implementation
-end;
-
-function NewLegacyKeccak256: IHash;
-begin
-  Result := TKeccak256.Create;
+  Result := TShake256.Create;
 end;
 
 end.

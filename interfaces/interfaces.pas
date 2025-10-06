@@ -1,7 +1,3 @@
-{
-  This unit is a temporary placeholder for the Go 'interfaces' package.
-  It provides minimal interface definitions to allow the conversion of dependent units.
-}
 unit V.Interfaces;
 
 interface

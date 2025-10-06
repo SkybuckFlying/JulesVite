@@ -1,90 +1,54 @@
-{
-  This file is a translation of the original Go source file:
-  https://github.com/vitelabs/go-vite/blob/master/common/condTimeout.go
-}
 unit V.Common.CondTimeout;
 
 interface
 
 uses
-  System.SysUtils, System.SyncObjs, System.Classes;
+  System.SysUtils,
+  System.SyncObjs,
+  System.Diagnostics;
 
 type
-  ETimeout = class(Exception);
-
-  TTimeoutCond = class
+  TConditionTimeout = class
   private
-    FNotifyNum: Integer;
-    FLock: TCriticalSection;
-    FSignal: TEvent;
+    FCond: TCondition;
+    FMutex: TMutex;
   public
-    constructor Create;
+    constructor Create(Mutex: TMutex);
     destructor Destroy; override;
-    procedure Wait;
-    function WaitTimeout(Timeout: Cardinal): Boolean;
-    procedure Broadcast;
+    function Wait(Timeout: Cardinal): TWaitResult;
     procedure Signal;
+    procedure Broadcast;
   end;
 
 implementation
 
-{ TTimeoutCond }
+{ TConditionTimeout }
 
-constructor TTimeoutCond.Create;
+constructor TConditionTimeout.Create(Mutex: TMutex);
 begin
-  inherited Create;
-  FLock := TCriticalSection.Create;
-  FSignal := TEvent.Create(nil, True, False, '');
+  FMutex := Mutex;
+  FCond := TCondition.Create;
 end;
 
-destructor TTimeoutCond.Destroy;
+destructor TConditionTimeout.Destroy;
 begin
-  FSignal.Free;
-  FLock.Free;
-  inherited Destroy;
+  FCond.Free;
+  inherited;
 end;
 
-procedure TTimeoutCond.Wait;
+function TConditionTimeout.Wait(Timeout: Cardinal): TWaitResult;
 begin
-  if TInterlocked.Exchange(FNotifyNum, 0) > 0 then
-    Exit;
-
-  FSignal.WaitFor(INFINITE);
+  Result := FCond.WaitFor(FMutex, Timeout);
 end;
 
-function TTimeoutCond.WaitTimeout(Timeout: Cardinal): Boolean;
+procedure TConditionTimeout.Signal;
 begin
-  if TInterlocked.Exchange(FNotifyNum, 0) > 0 then
-    Exit(True);
-
-  Result := FSignal.WaitFor(Timeout) = wrSignaled;
+  FCond.Signal;
 end;
 
-procedure TTimeoutCond.Broadcast;
-var
-  OldSignal: TEvent;
+procedure TConditionTimeout.Broadcast;
 begin
-  TInterlocked.Increment(FNotifyNum);
-  FLock.Enter;
-  try
-    OldSignal := FSignal;
-    FSignal := TEvent.Create(nil, True, False, '');
-    OldSignal.SetEvent;
-    OldSignal.Free;
-  finally
-    FLock.Leave;
-  end;
-end;
-
-procedure TTimeoutCond.Signal;
-begin
-  TInterlocked.Increment(FNotifyNum);
-  FLock.Enter;
-  try
-    FSignal.SetEvent;
-  finally
-    FLock.Leave;
-  end;
+  FCond.Broadcast;
 end;
 
 end.

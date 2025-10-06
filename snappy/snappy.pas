@@ -1,7 +1,3 @@
-{
-  This unit is a temporary placeholder for the Go 'snappy' package.
-  It provides a minimal implementation to allow the conversion of dependent units.
-}
 unit V.Snappy;
 
 interface
@@ -9,42 +5,28 @@ interface
 uses
   System.SysUtils;
 
-// Encode returns the compressed form of src.
-function Encode(const Dst, Src: TBytes): TBytes;
+type
+  IReader = interface
+    // Placeholder for snappy reader
+  end;
 
-// Decode returns the uncompressed form of src.
-function Decode(const Dst, Src: TBytes): TBytes;
+  IWriter = interface
+    // Placeholder for snappy writer
+  end;
 
-// DecodedLen returns the length of the decoded block.
-function DecodedLen(const Src: TBytes): Integer;
-
-// MaxEncodedLen returns the maximum length of a compressed block.
-function MaxEncodedLen(SrcLen: Integer): Integer;
+function NewReader(r: TStream): IReader;
+function NewWriter(w: TStream): IWriter;
 
 implementation
 
-function Encode(const Dst, Src: TBytes): TBytes;
+function NewReader(r: TStream): IReader;
 begin
-  // Placeholder: just return the source for now
-  Result := Src;
+  Result := nil; // Placeholder
 end;
 
-function Decode(const Dst, Src: TBytes): TBytes;
+function NewWriter(w: TStream): IWriter;
 begin
-  // Placeholder: just return the source for now
-  Result := Src;
-end;
-
-function DecodedLen(const Src: TBytes): Integer;
-begin
-  // Placeholder: assume no compression
-  Result := Length(Src);
-end;
-
-function MaxEncodedLen(SrcLen: Integer): Integer;
-begin
-  // Placeholder
-  Result := SrcLen;
+  Result := nil; // Placeholder
 end;
 
 end.

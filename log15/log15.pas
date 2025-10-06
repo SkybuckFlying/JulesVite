@@ -1,96 +1,85 @@
-{
-  This unit is a temporary placeholder for the Go 'log15' package.
-  It provides a minimal implementation to allow the conversion of dependent units.
-  The full functionality will be implemented when addressing project dependencies.
-}
 unit V.Log15;
 
 interface
 
 uses
-  System.SysUtils, System.Classes;
+  System.SysUtils;
 
 type
-  TLogLvl = (LvlCrit, LvlError, LvlWarn, LvlInfo, LvlDebug, LvlTrace);
-  TLogHandler = class; // Opaque class for now
-  TLogFormat = class;  // Opaque class for now
-
-  TLogger = class
-  public
-    procedure Error(const Msg: string; const-var-args Args: array of const);
-    procedure Crit(const Msg: string; const-var-args Args: array of const);
-    class function New(const-var-args Args: array of const): TLogger;
+  ILogger = interface
+    ['{E4D3C2B1-A9F8-4E7D-8C6B-5A4B3C2D1E0F}']
+    function New(ctx: array of const): ILogger;
+    procedure Debug(msg: string; ctx: array of const);
+    procedure Info(msg: string; ctx: array of const);
+    procedure Warn(msg: string; ctx: array of const);
+    procedure Error(msg: string; ctx: array of const);
+    procedure Crit(msg: string; ctx: array of const);
+    function GetHandler: TObject; // Placeholder for Handler
+    procedure SetHandler(h: TObject); // Placeholder for Handler
   end;
 
-var
-  GLog: TLogger;
-
-function LvlFromString(const lvl: string): TLogLvl;
-function LvlFilterHandler(lvl: TLogLvl; handler: TLogHandler): TLogHandler;
-function StreamHandler(writer: TStream; format: TLogFormat): TLogHandler;
-function LogfmtFormat: TLogFormat;
+  TLog15 = class(TInterfacedObject, ILogger)
+  public
+    class function New(ctx: array of const): ILogger;
+    function New(ctx: array of const): ILogger;
+    procedure Debug(msg: string; ctx: array of const);
+    procedure Info(msg: string; ctx: array of const);
+    procedure Warn(msg: string; ctx: array of const);
+    procedure Error(msg: string; ctx: array of const);
+    procedure Crit(msg: string; ctx: array of const);
+    function GetHandler: TObject; // Placeholder for Handler
+    procedure SetHandler(h: TObject); // Placeholder for Handler
+  end;
 
 implementation
 
-{ TLogger }
+{ TLog15 }
 
-procedure TLogger.Error(const Msg: string; const-var-args Args: array of const);
-var
-  i: Integer;
-  ArgStr: string;
+class function TLog15.New(ctx: array of const): ILogger;
 begin
-  ArgStr := '';
-  for i := 0 to High(Args) do
-  begin
-    if i > 0 then
-      ArgStr := ArgStr + ', ';
-    ArgStr := ArgStr + VarToStr(Args[i]);
-  end;
-  Writeln(Format('ERROR: %s [%s]', [Msg, ArgStr]));
+  Result := TLog15.Create;
+  // Placeholder - real implementation would handle context
 end;
 
-procedure TLogger.Crit(const Msg: string; const-var-args Args: array of const);
+function TLog15.New(ctx: array of const): ILogger;
 begin
-  Error('CRITICAL: ' + Msg, Args);
-  // In a real implementation, this would likely terminate the application.
-  Halt(1);
+  Result := TLog15.Create;
+  // Placeholder
 end;
 
-class function TLogger.New(const-var-args Args: array of const): TLogger;
+procedure TLog15.Debug(msg: string; ctx: array of const);
 begin
-  Result := TLogger.Create;
+  // Placeholder
 end;
 
-{ Placeholder functions }
-
-function LvlFromString(const lvl: string): TLogLvl;
+procedure TLog15.Info(msg: string; ctx: array of const);
 begin
-  if SameText(lvl, 'crit') then Result := LvlCrit
-  else if SameText(lvl, 'error') then Result := LvlError
-  else if SameText(lvl, 'warn') then Result := LvlWarn
-  else if SameText(lvl, 'info') then Result := LvlInfo
-  else if SameText(lvl, 'debug') then Result := LvlDebug
-  else if SameText(lvl, 'trace') then Result := LvlTrace
-  else Result := LvlInfo; // Default
+  // Placeholder
 end;
 
-function LvlFilterHandler(lvl: TLogLvl; handler: TLogHandler): TLogHandler;
+procedure TLog15.Warn(msg: string; ctx: array of const);
 begin
-  Result := nil; // Placeholder
+  // Placeholder
 end;
 
-function StreamHandler(writer: TStream; format: TLogFormat): TLogHandler;
+procedure TLog15.Error(msg: string; ctx: array of const);
 begin
-  Result := nil; // Placeholder
+  // Placeholder
 end;
 
-function LogfmtFormat: TLogFormat;
+procedure TLog15.Crit(msg: string; ctx: array of const);
 begin
-  Result := nil; // Placeholder
+  // Placeholder
 end;
 
-initialization
-  GLog := TLogger.New();
-finalization
-  GLog.Free;
+function TLog15.GetHandler: TObject;
+begin
+  Result := nil;
+end;
+
+procedure TLog15.SetHandler(h: TObject);
+begin
+  // Placeholder
+end;
+
 end.

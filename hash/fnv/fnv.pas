@@ -1,7 +1,3 @@
-{
-  This unit is a temporary placeholder for the Go 'hash/fnv' package.
-  It provides a minimal implementation to allow the conversion of dependent units.
-}
 unit V.Hash.FNV;
 
 interface
@@ -10,47 +6,56 @@ uses
   System.SysUtils;
 
 type
-  IHash64 = interface
-    ['{EADF3E3B-2F29-4A8A-9A4E-6E35A57A4645}']
-    procedure Write(const data: TBytes);
-    function Sum(b: TBytes): TBytes;
-    procedure Reset;
+  IHash32 = interface
+    ['{C3D4E5F6-A7B8-4C8D-9E8F-706B5C4D3E2D}']
+    procedure Write(const buffer: TBytes);
+    function Sum32: UInt32;
   end;
 
-function New64: IHash64;
+function New32: IHash32;
 
 implementation
 
+const
+  Offset32 = 2166136261;
+  Prime32 = 16777619;
+
 type
-  TFNV64a = class(TInterfacedObject, IHash64)
+  THash32 = class(TInterfacedObject, IHash32)
+  private
+    FHash: UInt32;
   public
-    procedure Write(const data: TBytes);
-    function Sum(b: TBytes): TBytes;
-    procedure Reset;
+    constructor Create;
+    procedure Write(const buffer: TBytes);
+    function Sum32: UInt32;
   end;
 
-procedure TFNV64a.Write(const data: TBytes);
+{ THash32 }
+
+constructor THash32.Create;
 begin
-  // Placeholder
+  FHash := Offset32;
 end;
 
-function TFNV64a.Sum(b: TBytes): TBytes;
+procedure THash32.Write(const buffer: TBytes);
 var
-  hashResult: TBytes;
+  b: Byte;
 begin
-  SetLength(hashResult, 8); // 64-bit hash
-  FillChar(hashResult[0], 8, 0);
-  Result := b + hashResult;
+  for b in buffer do
+  begin
+    FHash := FHash * Prime32;
+    FHash := FHash xor b;
+  end;
 end;
 
-procedure TFNV64a.Reset;
+function THash32.Sum32: UInt32;
 begin
-  // Placeholder
+  Result := FHash;
 end;
 
-function New64: IHash64;
+function New32: IHash32;
 begin
-  Result := TFNV64a.Create;
+  Result := THash32.Create;
 end;
 
 end.

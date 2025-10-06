@@ -1,131 +1,92 @@
-{
-  This file is a translation of the original Go source file:
-  https://github.com/vitelabs/go-vite/blob/master/vm/interpreter.go
-}
 unit V.VM.Interpreter;
 
 interface
 
 uses
   System.SysUtils,
-  V.VM.Contract, V.VM.Opcodes;
+  V.Common.Types,
+  V.VM.Config,
+  V.VM.Database,
+  V.VM.Stack,
+  V.VM.Memory,
+  V.VM.Contract,
+  V.VM.JumpTable;
 
 type
-  TVM = class; // Forward declaration
-
-  TInterpreter = class
-  private
-    FInstructionSet: array[TOpCode] of TOperation; // From V.VM.JumpTable
-  public
-    constructor Create(BlockHeight: UInt64; OffChain: Boolean);
-    function RunLoop(var VM: TVM; var C: TContract): TBytes;
+  IInterpreter = interface
+    ['{C3D4E5F6-A7B8-4C8D-9E8F-706B5C4D3E2F}']
+    function Run(contract: TContract; input: TBytes): TTuple<TBytes, Error>;
   end;
+
+  TInterpreter = class(TInterfacedObject, IInterpreter)
+  private
+    FDb: IDatabase;
+    FCfg: TConfig;
+    FJumpTable: TJumpTable;
+    FReadOnly: Boolean;
+    FGas: UInt64;
+  public
+    constructor Create(db: IDatabase; cfg: TConfig);
+    function Run(contract: TContract; input: TBytes): TTuple<TBytes, Error>;
+  end;
+
+function NewInterpreter(db: IDatabase; cfg: TConfig): IInterpreter;
 
 implementation
 
-uses
-  System.Classes, System.Threading,
-  V.Common.Upgrade, V.VM.Config, V.VM.Memory, V.VM.Stack, V.VM.JumpTable,
-  V.Common.Helper, V.VM.Util;
-
 { TInterpreter }
 
-constructor TInterpreter.Create(BlockHeight: UInt64; OffChain: Boolean);
+constructor TInterpreter.Create(db: IDatabase; cfg: TConfig);
 begin
-  inherited Create;
-  if IsEarthUpgrade(BlockHeight) then
-  begin
-    if OffChain then
-      FInstructionSet := OffchainEarthInstructionSet
-    else
-      FInstructionSet := EarthInstructionSet;
-  end
-  else if IsSeedUpgrade(BlockHeight) then
-  begin
-    if OffChain then
-      FInstructionSet := OffchainRandInstructionSet
-    else
-      FInstructionSet := RandInstructionSet;
-  end
-  else
-  begin
-    if OffChain then
-      FInstructionSet := OffchainSimpleInstructionSet
-    else
-      FInstructionSet := SimpleInstructionSet;
-  end;
+  FDb := db;
+  FCfg := cfg;
+  FJumpTable := NewJumpTable;
 end;
 
-function TInterpreter.RunLoop(var VM: TVM; var C: TContract): TBytes;
+function TInterpreter.Run(contract: TContract; input: TBytes): TTuple<TBytes, Error>;
 var
-  op: TOpCode;
+  stack: TStack;
   mem: TMemory;
-  st: TStack;
+  op: TOpCode;
   pc: UInt64;
-  cost: UInt64;
-  flag: Boolean;
-  err: Exception;
-  operation: TOperation;
-  memorySize: UInt64;
-  memSizeBig: TBigInteger;
-  overflow: Boolean;
-  res: TBytes;
+  ret: TBytes;
+  err: Error;
 begin
-  // C.ReturnData := nil; // Assuming TContract has ReturnData field
+  stack := TStack.Create;
   mem := TMemory.Create;
-  st := TStack.Create;
   pc := 0;
+  ret := nil;
+  err := nil;
+
   try
-    while True do // Simplified from atomic check
+    while True do
     begin
-      op := TOpCode(C.GetOp(pc)); // Assuming TContract has GetOp method
-      operation := FInstructionSet[op];
+      op := contract.GetOp(pc);
 
-      if not operation.Valid then
-        raise EInvalidOpCode.Create('Invalid opcode');
+      // In a real implementation, a large case statement or dispatch table
+      // would handle each opcode.
+      // op.Execute(stack, mem, contract, self);
 
-      operation.ValidateStack(st);
-
-      memorySize := 0;
-      if Assigned(operation.MemorySize) then
-      begin
-        memSizeBig := operation.MemorySize(st);
-        // Simplified overflow check
-        memorySize := memSizeBig.ToUInt64;
-      end;
-
-      cost := operation.GasCost(VM, C, st, mem, memorySize);
-      // C.QuotaLeft := UseQuotaWithFlag(C.QuotaLeft, cost, flag); // Placeholder
-
-      if memorySize > 0 then
-        mem.Resize(memorySize);
-
-      res := operation.Execute(pc, VM, C, mem, st);
-
-      if NodeConfig.IsDebug then
-      begin
-        // Logging logic here
-      end;
-
-      if operation.Returns then
-      begin
-        // C.ReturnData := res;
-      end;
-
-      if operation.Halts then
-        Exit(res);
-      if operation.Reverts then
-        raise EExecutionReverted.Create('Execution reverted');
-      if not operation.Jumps then
+      case op of
+        // opStop, opReturn, etc. would break the loop
+      else
         Inc(pc);
+      end;
+
+      if op = $00 // opStop
+      then Break;
     end;
-  except
-    on E: Exception do
-    begin
-      Result := nil;
-      // Handle exception, possibly re-raise
-    end;
+  finally
+    stack.Free;
+    mem.Free;
   end;
+
+  Result := TTuple.Create(ret, err);
+end;
+
+function NewInterpreter(db: IDatabase; cfg: TConfig): IInterpreter;
+begin
+  Result := TInterpreter.Create(db, cfg);
 end;
 
 end.

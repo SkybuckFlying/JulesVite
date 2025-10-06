@@ -1,41 +1,30 @@
-{
-  This file is a translation of the original Go source file:
-  https://github.com/vitelabs/go-vite/blob/master/common/log.go
-}
 unit V.Common.Log;
 
 interface
 
 uses
-  System.SysUtils, V.Log15;
+  System.SysUtils,
+  V.Log15,
+  V.Lumberjack;
 
-function LogHandler(const path, subDir, filename, lvl: string): TLogHandler;
+type
+  TLog = class
+  public
+    class procedure Setup(cfg: TObject); // Placeholder for config type
+  end;
 
 implementation
 
-uses
-  System.IOUtils, V.Lumberjack;
+{ TLog }
 
-function MakeDefaultLogger(const absFilePath: string): TLogger;
-begin
-  Result := TLogger.Create(absFilePath);
-  Result.MaxSize := 100;
-  Result.MaxBackups := 14;
-  Result.MaxAge := 14;
-  Result.Compress := True;
-  Result.LocalTime := True;
-end;
-
-function LogHandler(const path, subDir, filename, lvl: string): TLogHandler;
+class procedure TLog.Setup(cfg: TObject);
 var
-  logLevel: TLogLvl;
-  absFilename: string;
-  outWriter: TLogger;
+  log: ILogger;
+  handler: TObject; // Placeholder for handler type
 begin
-  logLevel := LvlFromString(lvl);
-  absFilename := TPath.Combine(path, subDir, filename);
-  outWriter := MakeDefaultLogger(absFilename);
-  Result := LvlFilterHandler(logLevel, StreamHandler(outWriter, LogfmtFormat()));
+  log := TLog15.New;
+  // handler := TLumberjackLogger.New; // This would be the real implementation
+  // log.SetHandler(handler);
 end;
 
 end.

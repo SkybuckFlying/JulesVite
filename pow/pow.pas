@@ -1,22 +1,18 @@
-{
-  This unit is a temporary placeholder for the Go 'pow' package.
-  It provides a minimal implementation to allow the conversion of dependent units.
-}
 unit V.Pow;
 
 interface
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  V.Pow.Remote;
 
-// Init initializes the PoW system.
-procedure Init(VMTestParamEnabled: Boolean);
+type
+  IPow = interface
+    // This is a placeholder for the main Proof of Work interface.
+    function get_Remote: IRemotePow;
+    property Remote: IRemotePow read get_Remote;
+  end;
 
 implementation
-
-procedure Init(VMTestParamEnabled: Boolean);
-begin
-  // Placeholder
-end;
 
 end.

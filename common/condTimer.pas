@@ -1,126 +1,72 @@
-{
-  This file is a translation of the original Go source file:
-  https://github.com/vitelabs/go-vite/blob/master/common/condTimer.go
-}
 unit V.Common.CondTimer;
 
 interface
 
 uses
-  System.SysUtils, System.SyncObjs, System.Classes, System.Threading;
+  System.SysUtils,
+  System.SyncObjs,
+  System.Diagnostics;
 
 type
-  TCondTimer = class
+  TConditionTimer = class
   private
-    FMonitor: TObject;
-    FNotifyNum: Integer;
-    FStopEvent: TEvent;
-    FTimerThread: TThread;
-    FInterval: Cardinal;
-    procedure TimerLoop;
+    FCond: TCondition;
+    FMutex: TMutex;
+    FStopwatch: TStopwatch;
+    FTimeout: Int64;
   public
-    constructor Create;
+    constructor Create(Mutex: TMutex);
     destructor Destroy; override;
-    procedure Wait;
-    procedure Broadcast;
+    procedure Start(Timeout: Int64);
+    function Wait: TWaitResult;
     procedure Signal;
-    procedure Start(AInterval: Cardinal);
-    procedure Stop;
+    procedure Broadcast;
   end;
 
 implementation
 
-{ TCondTimer }
+{ TConditionTimer }
 
-constructor TCondTimer.Create;
+constructor TConditionTimer.Create(Mutex: TMutex);
 begin
-  inherited Create;
-  FMonitor := TObject.Create;
-  FStopEvent := TEvent.Create(nil, True, False, '');
+  FMutex := Mutex;
+  FCond := TCondition.Create;
 end;
 
-destructor TCondTimer.Destroy;
+destructor TConditionTimer.Destroy;
 begin
-  Stop;
-  FStopEvent.Free;
-  FMonitor.Free;
-  inherited Destroy;
+  FCond.Free;
+  inherited;
 end;
 
-procedure TCondTimer.Wait;
+procedure TConditionTimer.Start(Timeout: Int64);
 begin
-  if TInterlocked.Exchange(FNotifyNum, 0) > 0 then
-    Exit;
-
-  TMonitor.Enter(FMonitor);
-  try
-    TMonitor.Wait(FMonitor, INFINITE);
-  finally
-    TMonitor.Exit(FMonitor);
-  end;
+  FTimeout := Timeout;
+  FStopwatch := TStopwatch.StartNew;
 end;
 
-procedure TCondTimer.Broadcast;
+function TConditionTimer.Wait: TWaitResult;
+var
+  Elapsed, Remaining: Int64;
 begin
-  TInterlocked.Increment(FNotifyNum);
-  TMonitor.Enter(FMonitor);
-  try
-    TMonitor.PulseAll(FMonitor);
-  finally
-    TMonitor.Exit(FMonitor);
-  end;
-end;
-
-procedure TCondTimer.Signal;
-begin
-  TInterlocked.Increment(FNotifyNum);
-  TMonitor.Enter(FMonitor);
-  try
-    TMonitor.Pulse(FMonitor);
-  finally
-    TMonitor.Exit(FMonitor);
-  end;
-end;
-
-procedure TCondTimer.TimerLoop;
-begin
-  while FStopEvent.WaitFor(FInterval) <> wrSignaled do
+  Elapsed := FStopwatch.ElapsedMilliseconds;
+  if Elapsed >= FTimeout then
+    Result := TWaitResult.wrTimeout
+  else
   begin
-    Broadcast;
+    Remaining := FTimeout - Elapsed;
+    Result := FCond.WaitFor(FMutex, Cardinal(Remaining));
   end;
 end;
 
-procedure TCondTimer.Start(AInterval: Cardinal);
+procedure TConditionTimer.Signal;
 begin
-  TMonitor.Enter(FMonitor);
-  try
-    if Assigned(FTimerThread) and (not FTimerThread.IsFinished) then
-      Exit;
-
-    FInterval := AInterval;
-    FStopEvent.ResetEvent;
-    FTimerThread := TThread.CreateAnonymousThread(TimerLoop);
-    FTimerThread.Start;
-  finally
-    TMonitor.Exit(FMonitor);
-  end;
+  FCond.Signal;
 end;
 
-procedure TCondTimer.Stop;
+procedure TConditionTimer.Broadcast;
 begin
-  TMonitor.Enter(FMonitor);
-  try
-    if not Assigned(FTimerThread) then
-      Exit;
-    FStopEvent.SetEvent;
-  finally
-    TMonitor.Exit(FMonitor);
-  end;
-
-  FTimerThread.WaitFor;
-  FTimerThread := nil;
-
-  Broadcast;
+  FCond.Broadcast;
 end;
 
 end.

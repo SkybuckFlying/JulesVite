@@ -1,29 +1,18 @@
-{
-  This unit is a temporary placeholder for the Go 'vm/vm.go' config.
-  It provides a minimal TVMConfig record and a global NodeConfig variable
-  to allow the conversion of dependent units.
-}
 unit V.VM.Config;
 
 interface
 
 uses
-  System.SysUtils, V.Log15;
+  System.SysUtils,
+  V.Common.Upgrade;
 
 type
-  TVMConfig = record
-    IsDebug: Boolean;
-    Log: TLogger;
-    InterpreterLog: TLogger;
+  TConfig = record
+    // This is a placeholder for the VM's configuration.
+    // It would contain settings like which forks are active, etc.
+    Upgrades: IUpgrade;
   end;
-
-var
-  NodeConfig: TVMConfig;
 
 implementation
 
-initialization
-  NodeConfig.IsDebug := False;
-  NodeConfig.Log := GLog;
-  NodeConfig.InterpreterLog := GLog;
 end.

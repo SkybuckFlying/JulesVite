@@ -1,19 +1,12 @@
-{
-  This unit is a temporary placeholder for the Go 'vm/util' package.
-  It provides minimal constants and types to allow the conversion of dependent units.
-}
 unit V.VM.Util;
 
 interface
 
 uses
-  System.SysUtils, System.Numerics;
+  System.SysUtils;
 
-var
-  AttovPerVite: TBigInteger;
+// This unit is a placeholder for utility functions specific to the virtual machine.
 
 implementation
 
-initialization
-  AttovPerVite := TBigInteger.Pow(10, 18);
 end.

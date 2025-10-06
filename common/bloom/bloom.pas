@@ -1,143 +1,77 @@
-{
-  This file is a translation of the original Go source file:
-  https://github.com/vitelabs/go-vite/blob/master/common/bloom/bloom.go
-}
 unit V.Common.Bloom;
 
 interface
 
 uses
-  System.SysUtils, V.Common.Bloom.Bucket, V.Hash.FNV;
+  System.SysUtils,
+  V.Common.Bloom.Util,
+  V.Common.Bloom.Bucket;
 
 type
-  // TFilter implements a classic thread-safe Bloom filter.
   TFilter = class
   private
-    FBuckets: array[0..1] of TBuckets;
-    FHash: IHash64;
-    FM: Cardinal;
-    FK: Cardinal;
-    FCritSect: TCriticalSection;
-    function TestHashUnlocked(Lower, Upper: UInt32): Boolean;
-    procedure AddHashUnlocked(Lower, Upper: UInt32);
+    FBuckets: TArray<TBucket>;
+    FHashFuncs: Integer;
   public
-    constructor Create(N: Cardinal; FpRate: Double);
-    destructor Destroy; override;
-    function Test(const Data: TBytes): Boolean;
-    procedure Add(const Data: TBytes);
-    function TestAndAdd(const Data: TBytes): Boolean;
+    constructor Create(buckets, hashFuncs: Integer);
+    procedure Add(data: TBytes);
+    function Contains(data: TBytes): Boolean;
   end;
+
+function NewFilter(buckets, hashFuncs: Integer): TFilter;
 
 implementation
 
-uses
-  V.Common.Bloom.Util;
-
 { TFilter }
 
-constructor TFilter.Create(N: Cardinal; FpRate: Double);
-begin
-  inherited Create;
-  FM := OptimalM(N, FpRate);
-  FK := OptimalK(FpRate);
-  FBuckets[0] := TBuckets.Create(FM, 1);
-  FBuckets[1] := TBuckets.Create(FM, 1);
-  FHash := New64;
-  FCritSect := TCriticalSection.Create;
-end;
-
-destructor TFilter.Destroy;
-begin
-  FBuckets[0].Free;
-  FBuckets[1].Free;
-  FCritSect.Free;
-  inherited Destroy;
-end;
-
-function TFilter.Test(const Data: TBytes): Boolean;
+constructor TFilter.Create(buckets, hashFuncs: Integer);
 var
-  lower, upper: UInt32;
+  i: Integer;
 begin
-  FCritSect.Enter;
-  try
-    HashInternal(Data, FHash, lower, upper);
-    Result := TestHashUnlocked(lower, upper);
-  finally
-    FCritSect.Leave;
+  FHashFuncs := hashFuncs;
+  SetLength(FBuckets, buckets);
+  for i := 0 to buckets - 1 do
+    SetLength(FBuckets[i], 8); // 64 bits per bucket
+end;
+
+procedure TFilter.Add(data: TBytes);
+var
+  hashes: TArray<UInt32>;
+  h: UInt32;
+  bucketIndex, bitIndex: Integer;
+begin
+  hashes := BaseHashes(data);
+  for h in hashes do
+  begin
+    bucketIndex := h mod Length(FBuckets);
+    bitIndex := (h shr 16) mod 64; // Example of deriving bit index
+    FBuckets[bucketIndex][bitIndex div 8] := FBuckets[bucketIndex][bitIndex div 8] or (1 shl (bitIndex mod 8));
   end;
 end;
 
-function TFilter.TestHashUnlocked(Lower, Upper: UInt32): Boolean;
+function TFilter.Contains(data: TBytes): Boolean;
 var
-  bkt: TBuckets;
-  i: Cardinal;
+  hashes: TArray<UInt32>;
+  h: UInt32;
+  bucketIndex, bitIndex: Integer;
 begin
-  for bkt in FBuckets do
+  hashes := BaseHashes(data);
+  for h in hashes do
   begin
-    Result := True;
-    for i := 0 to FK - 1 do
+    bucketIndex := h mod Length(FBuckets);
+    bitIndex := (h shr 16) mod 64;
+    if (FBuckets[bucketIndex][bitIndex div 8] and (1 shl (bitIndex mod 8))) = 0 then
     begin
-      if bkt.Get((lower + upper * i) mod FM) = 0 then
-      begin
-        Result := False;
-        Break;
-      end;
-    end;
-    if Result then
-      Exit;
-  end;
-  Result := False;
-end;
-
-procedure TFilter.Add(const Data: TBytes);
-var
-  lower, upper: UInt32;
-begin
-  FCritSect.Enter;
-  try
-    HashInternal(Data, FHash, lower, upper);
-    AddHashUnlocked(lower, upper);
-  finally
-    FCritSect.Leave;
-  end;
-end;
-
-procedure TFilter.AddHashUnlocked(Lower, Upper: UInt32);
-var
-  temp: TBuckets;
-  i: Cardinal;
-begin
-  if FBuckets[0].FullRatio > 0.8 then
-  begin
-    temp := FBuckets[0];
-    FBuckets[0] := FBuckets[1];
-    FBuckets[1] := temp;
-    FBuckets[0].Reset;
-  end;
-
-  for i := 0 to FK - 1 do
-  begin
-    FBuckets[0].Set((lower + upper * i) mod FM, 1);
-  end;
-end;
-
-function TFilter.TestAndAdd(const Data: TBytes): Boolean;
-var
-  lower, upper: UInt32;
-begin
-  FCritSect.Enter;
-  try
-    HashInternal(Data, FHash, lower, upper);
-    if TestHashUnlocked(lower, upper) then
-    begin
-      Result := True;
+      Result := False;
       Exit;
     end;
-    AddHashUnlocked(lower, upper);
-    Result := False;
-  finally
-    FCritSect.Leave;
   end;
+  Result := True;
+end;
+
+function NewFilter(buckets, hashFuncs: Integer): TFilter;
+begin
+  Result := TFilter.Create(buckets, hashFuncs);
 end;
 
 end.

@@ -1,27 +1,23 @@
-{
-  This unit is a temporary placeholder for the Go 'net/vnode' package.
-  It provides minimal type definitions to allow the conversion of dependent units.
-}
 unit V.Net.VNode;
 
 interface
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  V.Common.Types;
 
 type
-  // TNode is a placeholder for the node structure.
   TNode = record
-    // Placeholder fields
+    // Placeholder for a node representation
   end;
-  PNode = ^TNode;
-  TNodeArray = array of PNode;
 
-  // TNodeInfo is a placeholder for node information.
-  TNodeInfo = record
-    // Placeholder fields
-  end;
+  function NewVNode(cfg: TObject; dbPath: string): TTuple<TNode, Error>;
 
 implementation
+
+function NewVNode(cfg: TObject; dbPath: string): TTuple<TNode, Error>;
+begin
+  // Placeholder implementation
+end;
 
 end.
