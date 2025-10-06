@@ -9,7 +9,7 @@ uses
   V.Common.Types;
 
 type
-  PBigInt = ^TBigIntWrapper;
+  PBigIntWrapper = ^TBigIntWrapper;
   TBigIntWrapper = record
     Int: IBigInt;
   end;
@@ -19,7 +19,7 @@ type
     Index: UInt64;
     BlockNum: UInt64;
     ExceptedBlockNum: UInt64;
-    VoteCnt: PBigInt;
+    VoteCnt: PBigIntWrapper;
     Name: string;
   end;
 
@@ -44,7 +44,7 @@ type
     Index: UInt64;
     Stats: TDictionary<string, PSbpStats>;
     BlockTotal: UInt64;
-    VoteSum: PBigInt;
+    VoteSum: PBigIntWrapper;
   end;
 
 implementation

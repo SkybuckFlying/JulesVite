@@ -14,7 +14,9 @@ type
     function Contains(const Key: TValue): Boolean;
     procedure Remove(const Key: TValue);
     function Count: Integer;
-    property Items[const Key: TValue]: TObject read Get write Add; default;
+    function GetValue(const Key: TValue): TObject;
+    procedure SetValue(const Key: TValue; const Value: TObject);
+    property Items[const Key: TValue]: TObject read GetValue write SetValue; default;
   end;
 
   TLRUCache = class(TInterfacedObject, ILRUCache)
@@ -22,6 +24,8 @@ type
     FDictionary: TDictionary<TValue, TObject>;
     FQueue: TQueue<TValue>;
     FSize: Integer;
+    function GetValue(const Key: TValue): TObject;
+    procedure SetValue(const Key: TValue; const Value: TObject);
   public
     constructor Create(ASize: Integer);
     destructor Destroy; override;
@@ -56,14 +60,22 @@ begin
 end;
 
 function TLRUCache.Get(const Key: TValue): TObject;
+var
+  value: TObject;
 begin
-  if FDictionary.TryGetValue(Key, Result) then
+  if FDictionary.TryGetValue(Key, value) then
   begin
     // Move to front (most recently used)
     // This simple implementation doesn't reorder on get, a full one would.
+    Result := value;
   end
   else
     Result := nil;
+end;
+
+function TLRUCache.GetValue(const Key: TValue): TObject;
+begin
+  Result := Get(Key);
 end;
 
 procedure TLRUCache.Add(const Key: TValue; const Value: TObject);
@@ -85,21 +97,29 @@ begin
   FQueue.Enqueue(Key);
 end;
 
+procedure TLRUCache.SetValue(const Key: TValue; const Value: TObject);
+begin
+  Add(Key, Value);
+end;
+
 function TLRUCache.Contains(const Key: TValue): Boolean;
 begin
   Result := FDictionary.ContainsKey(Key);
 end;
 
 procedure TLRUCache.Remove(const Key: TValue);
+var
+  newQueue: TQueue<TValue>;
+  item: TValue;
 begin
   if FDictionary.ContainsKey(Key) then
   begin
     FDictionary.Remove(Key);
     // This is inefficient. A real implementation would use a different structure.
-    var newQueue := TQueue<TValue>.Create;
+    newQueue := TQueue<TValue>.Create;
     while FQueue.Count > 0 do
     begin
-      var item := FQueue.Dequeue;
+      item := FQueue.Dequeue;
       if not TValue.Equals(item, Key) then
         newQueue.Enqueue(item);
     end;

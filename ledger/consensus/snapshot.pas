@@ -178,9 +178,9 @@ begin
   while (i >= startIndex) and (i <= endIndex) do
   begin
     if proofHash = nil then
-      Tuple.Create(point, err) := FDayPoints.GetByIndex(i)
+      Tuple.Create(point, err) := FRw.GetDayPoints.GetByIndex(i)
     else
-      Tuple.Create(point, err) := FDayPoints.GetByIndexWithProof(i, proofHash^);
+      Tuple.Create(point, err) := FRw.GetDayPoints.GetByIndexWithProof(i, proofHash^);
 
     if err <> nil then
       Exit(TTuple.Create(nil, err));
@@ -328,12 +328,12 @@ end;
 
 function TSnapshotCs.GetDayTimeIndex: ITimeIndex;
 begin
-  Result := FDayPoints as ITimeIndex;
+  Result := FRw.GetDayPoints;
 end;
 
 function TSnapshotCs.GetHourTimeIndex: ITimeIndex;
 begin
-  Result := FHourPoints as ITimeIndex;
+  Result := FRw.GetHourPoints;
 end;
 
 function TSnapshotCs.GetInfo: TGroupInfo;
@@ -348,7 +348,7 @@ end;
 
 function TSnapshotCs.GetPeriodTimeIndex: ITimeIndex;
 begin
-  Result := FPeriodPoints as ITimeIndex;
+  Result := FRw.GetPeriodPoints;
 end;
 
 function TSnapshotCs.GetSuccessRateByHour(index: UInt64): TTuple<TDictionary<TAddress, Int32>, Error>;
@@ -366,7 +366,7 @@ var
   v: PBaseStats;
 begin
   genesis := (FRw as IStateCh).GetGenesisSnapshotBlock;
-  Tuple.Create(stats, err) := GetBaseStats(genesis.Hash, FHourPoints, startIndex, endIndex);
+  Tuple.Create(stats, err) := GetBaseStats(genesis.Hash, FRw.GetHourPoints, startIndex, endIndex);
   if err <> nil then
     Exit(TTuple.Create(nil, err));
 
@@ -402,7 +402,7 @@ var
   v: PBaseStats;
 begin
   genesis := (FRw as IStateCh).GetGenesisSnapshotBlock;
-  Tuple.Create(stats, err) := GetBaseStats(genesis.Hash, FPeriodPoints, startIndex, endIndex);
+  Tuple.Create(stats, err) := GetBaseStats(genesis.Hash, FRw.GetPeriodPoints, startIndex, endIndex);
   if err <> nil then
     Exit(TTuple.Create(nil, err));
 

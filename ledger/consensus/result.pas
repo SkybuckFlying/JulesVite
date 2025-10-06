@@ -37,10 +37,11 @@ function GenElectionResult(Info: TGroupInfo; Index: UInt64; const Votes: TArray<
 var
   members: TArray<TAddress>;
   v: PVote;
+  i: Integer;
 begin
   SetLength(members, Length(Votes));
-  for v in Votes do
-    members := members + [v.Addr];
+  for i := 0 to High(Votes) do
+    members[i] := Votes[i].Addr;
   Result := GenElectionResult(Info, Index, members);
 end;
 

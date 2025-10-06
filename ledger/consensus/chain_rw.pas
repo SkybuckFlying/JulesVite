@@ -20,11 +20,12 @@ uses
   V.Ledger.Consensus.RollbackProof,
   V.Ledger.Pool.Lock,
   V.LRU,
-  V.Log15;
+  V.Log15,
+  V.Ledger.Chain.Interface;
 
 type
-  IChain = V.Ledger.Chain.Interface.IChain;
-  ISnapshotCs = V.Ledger.Consensus.Snapshot.ISnapshotCs; // Forward declaration
+  // Forward declaration
+  ISnapshotCs = interface;
 
   TVoteDetails = record
     Vote: TVote;
@@ -57,6 +58,9 @@ type
     function GetVoteLRUCache(gid: TGid; hash: THash): TTuple<TArray<TAddress>, Boolean>;
     procedure UpdateVoteLRUCache(gid: TGid; hash: THash; addrArr: TArray<TAddress>);
     procedure TriggerLoad(block: ISnapshotBlock);
+    function GetDayPoints: ILinkedArray;
+    function GetHourPoints: ILinkedArray;
+    function GetPeriodPoints: ILinkedArray;
   end;
 
   TChainRw = class(TInterfacedObject, IChainRw, IStateCh)
@@ -69,7 +73,7 @@ type
     FPeriodPoints: ILinkedArray;
     FDbCache: TConsensusDB;
     FLruCache: ILRUCache;
-    FStarted: chan struct{};
+    FStarted: TChan;
     FSnapshotLoadCh: chan ISnapshotBlock;
     FWg: TWaitGroup;
     FLog: ILogger;
@@ -96,6 +100,9 @@ type
     function GetVoteLRUCache(gid: TGid; hash: THash): TTuple<TArray<TAddress>, Boolean>;
     procedure UpdateVoteLRUCache(gid: TGid; hash: THash; addrArr: TArray<TAddress>);
     procedure TriggerLoad(block: ISnapshotBlock);
+    function GetDayPoints: ILinkedArray;
+    function GetHourPoints: ILinkedArray;
+    function GetPeriodPoints: ILinkedArray;
     { IStateCh }
     function GetRegisterList(snapshotHash: THash; gid: TGid): TTuple<TArray<PRegistration>, Error>;
     function GetVoteList(snapshotHash: THash; gid: TGid): TTuple<TArray<PVoteInfo>, Error>;
@@ -106,9 +113,7 @@ type
 function NewChainRw(rw: IChain; log: ILogger; rollbackLock: IChainRollback): IChainRw;
 
 const
-  Period = 1;
-  Hour = 48 * Period;
-  Day = 24 * Hour;
+  HourConst = 48;
 
 implementation
 
@@ -151,6 +156,7 @@ begin
   if err <> nil then
     raise EProgrammerException.Create(err.Error);
   FLruCache := cache;
+  FWg := TWaitGroup.Create;
 end;
 
 procedure TChainRw.Init(cs: ISnapshotCs);
@@ -172,12 +178,12 @@ var
   ctx: IContext;
   cancel: TCancelFunc;
 begin
-  FStarted := make(chan struct{});
+  make(FStarted);
   Tuple.Create(ctx, cancel) := TContext.WithCancel(TContext.Background);
   TGo.Create(
     procedure
     var
-      ticker: ITicker;
+      ticker: TTimer; // Simplified from Go ticker
       block: ISnapshotBlock;
       t: TDateTime;
       index, lastIdx: UInt64;
@@ -187,41 +193,26 @@ begin
     begin
       FWg.Add(1);
       try
-        ticker := TTime.NewTicker(30 * TTime.Second);
-        try
-          while True do
-          begin
-            select
-            case ticker.C:
-              block := GetLatestSnapshotBlock;
-              t := block.Timestamp;
-              index := FDayPoints.Time2Index(t);
-              Tuple.Create(point, err) := FDayPoints.GetByIndex(index);
-              if err <> nil then
-                FLog.Error('can''t get day info by index', 'index', index, 'time', t)
-              else
-                FLog.Info('get day by info index', 'index', index, 'time', t, 'point', point.Json);
+        while WaitForSingleObject(FStarted, 30000) <> WAIT_OBJECT_0 do
+        begin
+            block := GetLatestSnapshotBlock;
+            t := block.Timestamp;
+            index := FDayPoints.Time2Index(t);
+            Tuple.Create(point, err) := FDayPoints.GetByIndex(index);
+            if err <> nil then
+              FLog.Error('can''t get day info by index', 'index', index, 'time', t)
+            else
+              FLog.Info('get day by info index', 'index', index, 'time', t, 'point', point.Json);
 
-              if index > 0 then
-              begin
-                lastIdx := index - 1;
-                Tuple.Create(point, err) := FDayPoints.GetByIndex(lastIdx);
-                if err <> nil then
-                  FLog.Error('can''t get day info by last index', 'index', lastIdx, 'time', t)
-                else
-                  FLog.Info('get day by info last index', 'index', lastIdx, 'time', t, 'point', point.Json);
-              end;
-            case b := <-FSnapshotLoadCh:
-              FSnapshot.LoadVotes(b);
-            case <-FStarted:
-              cancel();
-              Exit;
-            case <-ctx.Done:
-              Exit;
+            if index > 0 then
+            begin
+              lastIdx := index - 1;
+              Tuple.Create(point, err) := FDayPoints.GetByIndex(lastIdx);
+              if err <> nil then
+                FLog.Error('can''t get day info by last index', 'index', lastIdx, 'time', t)
+              else
+                FLog.Info('get day by info last index', 'index', lastIdx, 'time', t, 'point', point.Json);
             end;
-          end;
-        finally
-          ticker.Stop;
         end;
       finally
         FWg.Done;
@@ -238,10 +229,8 @@ end;
 
 procedure TChainRw.TriggerLoad(block: ISnapshotBlock);
 begin
-  select
-  case FSnapshotLoadCh <- block:
-  default:
-  end;
+  // Simplified from Go channel logic
+  TGo.Create(procedure begin FSnapshot.LoadVotes(block) end);
 end;
 
 procedure TChainRw.UpdateSnapshotVoteCache(hash: THash; addresses: TArray<TAddress>);
@@ -254,7 +243,7 @@ begin
   if FLruCache <> nil then
   begin
     FLog.Info(Format('store election result %s, %+v', [hash.ToString, addrArr]));
-    FLruCache.Add(GenLruKey(gid, hash), addrArr);
+    FLruCache.Add(TValue.From(GenLruKey(gid, hash)), TObject(addrArr));
   end;
 end;
 
@@ -332,10 +321,7 @@ var
 begin
   Tuple.Create(meta, err) := FRw.GetContractMeta(block.AccountAddress);
   if err <> nil then
-  begin
-    Result := TTuple.Create(nil, err);
-    Exit;
-  end;
+    Exit(TTuple.Create(nil, err));
   Result := TTuple.Create(@meta.Gid, nil);
 end;
 
@@ -356,20 +342,14 @@ begin
   head := FRw.GetLatestSnapshotBlock;
   Tuple.Create(consensusGroupList, err) := FRw.GetConsensusGroupList(head.Hash);
   if err <> nil then
-  begin
-    Result := TTuple.Create(nil, err);
-    Exit;
-  end;
+    Exit(TTuple.Create(nil, err));
   for v in consensusGroupList do
   begin
     if v.Gid = gid then
       result := NewGroupInfo(FGenesisTime, v^);
   end;
   if result = nil then
-  begin
-    Result := TTuple.Create(nil, EProgrammerException.CreateFmt('can''t get consensus group[%s] info by [%s-%d].', [gid.ToString, head.Hash.ToString, head.Height]));
-    Exit;
-  end;
+    Exit(TTuple.Create(nil, EProgrammerException.CreateFmt('can''t get consensus group[%s] info by [%s-%d].', [gid.ToString, head.Hash.ToString, head.Height])));
   Result := TTuple.Create(result, nil);
 end;
 
@@ -390,15 +370,9 @@ var
 begin
   Tuple.Create(block, e) := FRw.GetSnapshotHeaderBeforeTime(t);
   if e <> nil then
-  begin
-    Result := TTuple.Create(nil, e);
-    Exit;
-  end;
+    Exit(TTuple.Create(nil, e));
   if block = nil then
-  begin
-    Result := TTuple.Create(nil, EProgrammerException.CreateFmt('before time[%s] block not exist', [DateTimeToStr(t)]));
-    Exit;
-  end;
+    Exit(TTuple.Create(nil, EProgrammerException.CreateFmt('before time[%s] block not exist', [DateTimeToStr(t)])));
   Result := TTuple.Create(block, nil);
 end;
 
@@ -411,9 +385,10 @@ function TChainRw.GetSnapshotVoteCache(hash: THash): TTuple<TArray<TAddress>, Bo
 var
   resultArr: TArray<TAddress>;
   b: Boolean;
+  err: Error;
 begin
-  Tuple.Create(resultArr, b) := FDbCache.GetElectionResultByHash(hash);
-  if b then
+  Tuple.Create(resultArr, err) := FDbCache.GetElectionResultByHash(hash);
+  if err = nil and resultArr <> nil then
     Exit(TTuple.Create(resultArr, True));
 
   Tuple.Create(resultArr, b) := GetVoteLRUCache(GID_Snapshot, hash);
@@ -437,14 +412,12 @@ var
   infos: TDictionary<TAddress, TContent>;
   k: TAddress;
   v: TContent;
-  c: TContent;
-  ok: Boolean;
 begin
   result := TDictionary<TAddress, Int32>.Create;
   hourInfos := TDictionary<TAddress, TContent>.Create;
   prevHash := nil;
   i := 0;
-  while i < Hour do
+  while i < HourConst do
   begin
     if i > index then
       Break;
@@ -461,10 +434,10 @@ begin
     infos := p.Sbps;
     for k, v in infos do
     begin
-      if not hourInfos.TryGetValue(k, c) then
+      if not hourInfos.ContainsKey(k) then
         hourInfos.Add(k, v.Copy)
       else
-        c.Merge(v);
+        hourInfos[k].Merge(v);
     end;
     prevHash := @p.PrevHash;
     Inc(i);
@@ -485,11 +458,10 @@ var
   infos: TDictionary<TAddress, TContent>;
   k: TAddress;
   v: TContent;
-  c: TContent;
 begin
   hourInfos := TDictionary<TAddress, TContent>.Create;
   i := 0;
-  while i < Hour do
+  while i < HourConst do
   begin
     if i > index then
       Break;
@@ -501,10 +473,10 @@ begin
     infos := p.Sbps;
     for k, v in infos do
     begin
-      if not hourInfos.TryGetValue(k, c) then
+      if not hourInfos.ContainsKey(k) then
         hourInfos.Add(k, v.Copy)
       else
-        c.Merge(v);
+        hourInfos[k].Merge(v);
     end;
     Inc(i);
   end;
@@ -524,11 +496,26 @@ begin
   if FLruCache = nil then
     Exit(TTuple.Create(nil, False));
 
-  Tuple.Create(value, ok) := FLruCache.Get(GenLruKey(gid, hash));
+  ok := FLruCache.Get(TValue.From(GenLruKey(gid, hash)), value);
   if ok then
     Result := TTuple.Create(value as TArray<TAddress>, ok)
   else
     Result := TTuple.Create(nil, ok);
+end;
+
+function TChainRw.GetDayPoints: ILinkedArray;
+begin
+  Result := FDayPoints;
+end;
+
+function TChainRw.GetHourPoints: ILinkedArray;
+begin
+  Result := FHourPoints;
+end;
+
+function TChainRw.GetPeriodPoints: ILinkedArray;
+begin
+  Result := FPeriodPoints;
 end;
 
 function NewChainRw(rw: IChain; log: ILogger; rollbackLock: IChainRollback): IChainRw;

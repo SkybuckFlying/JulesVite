@@ -1,19 +1,22 @@
-{
-  This unit is a temporary placeholder for the Go 'ledger/chain/index' package.
-  It provides minimal definitions to allow the conversion of dependent units.
-}
 unit V.Ledger.Chain.Index;
 
 interface
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  V.Common.Types;
 
 type
-  // TIndexDB is a placeholder for the index database.
+  PMemberInfo = ^TMemberInfo;
+  TMemberInfo = record
+    GenesisTime: TDateTime;
+    PlanInterval: UInt64;
+    // other fields as needed
+  end;
+
   TIndexDB = class
-  public
-    // Placeholder methods
+    // This is a placeholder for the index database, which would handle
+    // storing and retrieving chain index information.
   end;
 
 implementation

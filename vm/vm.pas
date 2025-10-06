@@ -1,134 +1,77 @@
-{
-  This file is a translation of the original Go source file:
-  https://github.com/vitelabs/go-vite/blob/master/vm/vm.go
-}
 unit V.VM;
 
 interface
 
 uses
-  System.SysUtils, System.Classes, System.Generics.Collections,
-  V.Common.Types, V.Interfaces, V.Interfaces.Core, V.VM.Util, V.VM.Quota,
-  V.VM.Interpreter, V.VM.Contract;
+  System.SysUtils,
+  V.Common.Types,
+  V.VM.Config,
+  V.VM.Interpreter,
+  V.VM.Database,
+  V.VM.Quota;
 
 type
-  TCanTransferFunc = function(DB: IVmDb; const TokenTypeId: TTokenId; TokenAmount, FeeAmount: TBigInteger): Boolean;
-
-  TVM = class
-  private
-    FAbort: Integer;
-    FSendBlockList: TList<PAccountBlock>;
-    FInterpreter: TInterpreter;
-    FGlobalStatus: IGlobalStatus;
-    FReader: IConsensusReader;
-    FLatestSnapshotHeight: UInt64;
-    FGasTable: TQuotaTable;
-    function GetGlobalStatus: IGlobalStatus;
-    function GetConsensusReader: IConsensusReader;
-    procedure UpdateBlock(DB: IVmDb; Block: PAccountBlock; Err: Exception; QStakeUsed, QUsed: UInt64);
-    function DoSendBlockList(DB: IVmDb): IVmDb;
-    procedure Revert(DB: IVmDb);
-    procedure AppendBlock(Block: PAccountBlock);
-  public
-    constructor Create(ACr: IConsensusReader);
-    destructor Destroy; override;
-    procedure Cancel;
-    function RunV2(DB: IVmDb; Block, SendBlock: PAccountBlock; Status: IGlobalStatus): TObject; // Returns VmAccountBlock, isRetry, err
-    function OffChainReader(DB: IVmDb; const Code, Data: TBytes): TBytes;
+  IVM = interface
+    ['{A1B2C3D4-E5F6-4A8B-9C8D-7E6F5A4B3C2E}']
+    function Call(caller: ICaller; toAddr: TAddress; input: TBytes; gas: UInt64; value: IBigInt): TTuple<TBytes, UInt64, Error>;
+    function Create(caller: ICaller; code: TBytes; gas: UInt64; value: IBigInt): TTuple<TBytes, TAddress, UInt64, Error>;
   end;
+
+  TVM = class(TInterfacedObject, IVM)
+  private
+    FCfg: TConfig;
+    FDb: IDatabase;
+  public
+    constructor Create(cfg: TConfig; db: IDatabase);
+    function Call(caller: ICaller; toAddr: TAddress; input: TBytes; gas: UInt64; value: IBigInt): TTuple<TBytes, UInt64, Error>;
+    function Create(caller: ICaller; code: TBytes; gas: UInt64; value: IBigInt): TTuple<TBytes, TAddress, UInt64, Error>;
+  end;
+
+function NewVM(cfg: TConfig; db: IDatabase): IVM;
 
 implementation
 
-uses System.Threading, V.Common.Upgrade, V.VM.Config, V.VM.Contracts;
+uses
+  Go.Big;
 
 { TVM }
 
-constructor TVM.Create(ACr: IConsensusReader);
+constructor TVM.Create(cfg: TConfig; db: IDatabase);
 begin
-  inherited Create;
-  FReader := ACr;
-  FSendBlockList := TList<PAccountBlock>.Create;
+  FCfg := cfg;
+  FDb := db;
 end;
 
-destructor TVM.Destroy;
-begin
-  FSendBlockList.Free;
-  inherited Destroy;
-end;
-
-procedure TVM.Cancel;
-begin
-  TInterlocked.Exchange(FAbort, 1);
-end;
-
-function TVM.RunV2(DB: IVmDb; Block, SendBlock: PAccountBlock; Status: IGlobalStatus): TObject;
+function TVM.Call(caller: ICaller; toAddr: TAddress; input: TBytes; gas: UInt64; value: IBigInt): TTuple<TBytes, UInt64, Error>;
 var
-  sb: PSnapshotBlock;
-  blockCopy: PAccountBlock;
-  quotaTotal, quotaAddition: UInt64;
+  interpreter: IInterpreter;
+  contract: TContract;
 begin
-  // Simplified logic. A full implementation would be much more complex.
-  sb := DB.LatestSnapshotBlock;
-  FLatestSnapshotHeight := sb.Height;
-  // FGasTable := GetQuotaTableByHeight(sb.Height); // Placeholder
-  blockCopy := new PAccountBlock;
-  blockCopy^ := Block^;
-
-  if blockCopy.IsSendBlock then
-  begin
-    // ... logic for send blocks ...
-  end
-  else
-  begin
-    FInterpreter := TInterpreter.Create(sb.Height, False);
-    FGlobalStatus := Status;
-    // ... logic for receive blocks ...
-  end;
-  Result := nil;
+  interpreter := NewInterpreter(FDb, FCfg);
+  contract := TContract.Create(caller, toAddr, value);
+  // In a real implementation, you would load the contract code here.
+  // contract.FCode := FDb.GetCode(toAddr);
+  Result := interpreter.Run(contract, input);
 end;
 
-function TVM.OffChainReader(DB: IVmDb; const Code, Data: TBytes): TBytes;
+function TVM.Create(caller: ICaller; code: TBytes; gas: UInt64; value: IBigInt): TTuple<TBytes, TAddress, UInt64, Error>;
 var
-  sb: PSnapshotBlock;
-  c: TContract;
+  interpreter: IInterpreter;
+  contract: TContract;
+  newAddr: TAddress; // Address would be derived from caller and nonce
 begin
-  sb := DB.LatestSnapshotBlock;
-  FInterpreter := TInterpreter.Create(sb.Height, True);
-  // FGasTable := GetQuotaTableByHeight(sb.Height);
-  c := TContract.Create(TAccountBlock.Create(AccountAddress: DB.Address), DB, TAccountBlock.Create(ToAddress: DB.Address), Data, OffChainReaderGas);
-  c.SetCallCode(DB.Address^, Code);
-  Result := c.Run(Self);
+  interpreter := NewInterpreter(FDb, FCfg);
+  contract := TContract.Create(caller, newAddr, value);
+  contract.FCode := code;
+  // The Run method would need to handle contract creation logic.
+  // This is a simplified representation.
+  var runResult := interpreter.Run(contract, nil);
+  Result := TTuple.Create(runResult.Item1, newAddr, gas - 0, runResult.Item2); // Placeholder for gas used
 end;
 
-function TVM.GetGlobalStatus: IGlobalStatus;
+function NewVM(cfg: TConfig; db: IDatabase): IVM;
 begin
-  Result := FGlobalStatus;
-end;
-
-function TVM.GetConsensusReader: IConsensusReader;
-begin
-  Result := FReader;
-end;
-
-procedure TVM.UpdateBlock(DB: IVmDb; Block: PAccountBlock; Err: Exception; QStakeUsed, QUsed: UInt64);
-begin
-  // Placeholder
-end;
-
-function TVM.DoSendBlockList(DB: IVmDb): IVmDb;
-begin
-  Result := DB; // Placeholder
-end;
-
-procedure TVM.Revert(DB: IVmDb);
-begin
-  FSendBlockList.Clear;
-  DB.Reset;
-end;
-
-procedure TVM.AppendBlock(Block: PAccountBlock);
-begin
-  FSendBlockList.Add(Block);
+  Result := TVM.Create(cfg, db);
 end;
 
 end.

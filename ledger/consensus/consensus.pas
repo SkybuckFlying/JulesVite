@@ -26,7 +26,8 @@ uses
   V.Ledger.Consensus.Trigger,
   V.Ledger.Consensus.Config,
   V.Ledger.Consensus.Dpos,
-  V.Ledger.Consensus.Subscriber;
+  V.Ledger.Consensus.Subscriber,
+  V.Ledger.Consensus.Core;
 
 type
   IConsensusReader = interface
@@ -126,9 +127,8 @@ begin
   FSnapshot := NewSnapshotCs(FRw, FMLog);
   FContracts := TContractsCs.Create(FRw, FMLog);
   FDposWrapper := TDposReader.Create(FSnapshot, FContracts, FMLog);
-  apiSnapshot := Default(TAPISnapshot);
-  apiSnapshot.FSnapshot := FSnapshot;
-  FApi := IAPIConsensusReader(TObject(apiSnapshot)); // This is likely incorrect, needs review
+  FApi := NewAPISnapshot(FSnapshot);
+  FWg := TWaitGroup.Create;
 end;
 
 function TConsensus.API: IAPIConsensusReader;

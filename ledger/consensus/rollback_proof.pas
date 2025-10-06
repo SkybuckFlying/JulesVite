@@ -6,7 +6,7 @@ uses
   System.SysUtils,
   V.Common.Types,
   V.Interfaces.Core,
-  V.Ledger.Consensus.ChainRw;
+  V.Ledger.Chain.Interface;
 
 type
   IRollbackProof = interface
@@ -32,6 +32,8 @@ var
   ErrNotFoundBlock: Error;
 
 implementation
+
+uses System.DateUtils;
 
 { TRollbackProof }
 

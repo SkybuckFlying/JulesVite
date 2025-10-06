@@ -14,7 +14,7 @@ type
   TTrigger = class
   public
     constructor Create(rollback: IChainRollback);
-    procedure Update(ctx: IContext; gid: TGid; consensus: IDposConsensus; trigger: ISubscribeTrigger);
+    procedure Update(ctx: IContext; gid: TGid; consensus: IDposReader; trigger: ISubscribeTrigger);
   end;
 
 function NewTrigger(rollback: IChainRollback): TTrigger;
@@ -28,7 +28,7 @@ begin
   // Placeholder
 end;
 
-procedure TTrigger.Update(ctx: IContext; gid: TGid; consensus: IDposConsensus; trigger: ISubscribeTrigger);
+procedure TTrigger.Update(ctx: IContext; gid: TGid; consensus: IDposReader; trigger: ISubscribeTrigger);
 begin
   // Placeholder
 end;

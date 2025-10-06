@@ -447,6 +447,7 @@ var
   random: IRand;
   perm: TArray<Integer>;
   v: Integer;
+  i: Integer;
 begin
   seed := FindSeed(votes, hashH.Height, info);
   l := Length(votes);
@@ -454,8 +455,8 @@ begin
   perm := random.Perm(l);
 
   SetLength(Result, l);
-  for v in perm do
-    Result[v] := votes[v];
+  for i := 0 to l - 1 do
+    Result[i] := votes[perm[i]];
 end;
 
 { TBySuccessRate }

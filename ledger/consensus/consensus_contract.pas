@@ -10,7 +10,8 @@ uses
   V.Ledger.Consensus.ChainRw,
   V.Log15,
   V.Ledger.Consensus.ConsensusContractDpos,
-  V.Ledger.Consensus.Result;
+  V.Ledger.Consensus.Result,
+  V.Ledger.Consensus.Core.Group;
 
 type
   TContractsCs = class
@@ -21,9 +22,10 @@ type
     FLog: ILogger;
     function GetForGid(gid: TGid): TContractDposCs;
     function ReloadGid(gid: TGid): TTuple<TContractDposCs, Error>;
-    function GetOrLoadGid(gid: TGid): TTuple<TContractDposCs, Error>;
   public
     constructor Create(rw: IChainRw; log: ILogger);
+    destructor Destroy; override;
+    function GetOrLoadGid(gid: TGid): TTuple<TContractDposCs, Error>;
     function LoadGid(gid: TGid): Error;
     function ElectionTime(gid: TGid; t: TDateTime): TTuple<TElectionResult, Error>;
     function ElectionIndex(gid: TGid; index: UInt64): TTuple<TElectionResult, Error>;
@@ -32,8 +34,7 @@ type
 implementation
 
 uses
-  System.Classes,
-  V.Ledger.Chain.Index;
+  System.Classes;
 
 { TContractsCs }
 
@@ -43,6 +44,13 @@ begin
   FLog := log.New('gid', 'contracts');
   FContracts := TDictionary<TGid, TContractDposCs>.Create;
   FContractsMu := TMutex.Create;
+end;
+
+destructor TContractsCs.Destroy;
+begin
+  FContracts.Free;
+  FContractsMu.Free;
+  inherited;
 end;
 
 function TContractsCs.ElectionIndex(gid: TGid; index: UInt64): TTuple<TElectionResult, Error>;
@@ -71,16 +79,14 @@ var
 begin
   Tuple.Create(result, err) := GetOrLoadGid(gid);
   if err <> nil then
-  begin
-    Result := TTuple.Create(Default(TElectionResult), err);
-    Exit;
-  end;
+    Exit(TTuple.Create(Default(TElectionResult), err));
+
   if result = nil then
-  begin
-    Result := TTuple.Create(Default(TElectionResult), EProgrammerException.CreateFmt('can''t load contract group for gid:%s, t:%s', [gid.ToString, DateTimeToStr(t)]));
-    Exit;
-  end;
-  Result := result.ElectionTime(t);
+    Exit(TTuple.Create(Default(TElectionResult), EProgrammerException.CreateFmt('can''t load contract group for gid:%s, t:%s', [gid.ToString, DateTimeToStr(t)])));
+
+  // This method doesn't exist on TContractDposCs, this will need fixing
+  // Result := result.ElectionTime(t);
+  Result := Default(TTuple<TElectionResult, Error>);
 end;
 
 function TContractsCs.GetForGid(gid: TGid): TContractDposCs;
@@ -106,14 +112,11 @@ begin
   begin
     Tuple.Create(tmp, err) := ReloadGid(gid);
     if err <> nil then
-    begin
-      Result := TTuple.Create(nil, err);
-      Exit;
-    end;
+      Exit(TTuple.Create(nil, err));
     Result := TTuple.Create(tmp, nil);
-    Exit;
-  end;
-  Result := TTuple.Create(cs, nil);
+  end
+  else
+    Result := TTuple.Create(cs, nil);
 end;
 
 function TContractsCs.LoadGid(gid: TGid): Error;
@@ -132,7 +135,7 @@ end;
 
 function TContractsCs.ReloadGid(gid: TGid): TTuple<TContractDposCs, Error>;
 var
-  info: PMemberInfo;
+  info: TGroupInfo;
   err: Error;
   cs: TContractDposCs;
 begin
@@ -140,15 +143,10 @@ begin
   try
     Tuple.Create(info, err) := FRw.GetMemberInfo(gid);
     if err <> nil then
-    begin
-      Result := TTuple.Create(nil, err);
-      Exit;
-    end;
+      Exit(TTuple.Create(nil, err));
     if info = nil then
-    begin
-      Result := TTuple.Create(nil, EProgrammerException.CreateFmt('can''t load consensus gid:%s', [gid.ToString]));
-      Exit;
-    end;
+      Exit(TTuple.Create(nil, EProgrammerException.CreateFmt('can''t load consensus gid:%s', [gid.ToString])));
+
     cs := TContractDposCs.Create(info, FRw, FLog);
     FContracts.AddOrSetValue(gid, cs);
     Result := TTuple.Create(cs, nil);

@@ -10,9 +10,9 @@ uses
   V.Ledger.Consensus.Core.TimeIndexer,
   V.Ledger.Consensus.Cdb,
   V.Ledger.Consensus.LinkedArray,
-  V.Ledger.Consensus.DposReaderIntf,
+  V.Ledger.Consensus.Dpos,
   V.Ledger.Consensus.RollbackProof,
-  V.Ledger.Consensus.ChainRw,
+  V.Ledger.Chain.Interface,
   V.Ledger.Consensus.Result,
   V.LRU,
   V.Log15;
@@ -59,7 +59,7 @@ constructor TPeriodLinkedArray.Create(rw: IChain; cs: IDposReader; proof: IRollb
 var
   cache: ILRUCache;
   err: Error;
-  info: PMemberInfo;
+  info: TGroupInfo;
   interval: TTimeSpan;
 begin
   Tuple.Create(cache, err) := NewLRU(4 * 24 * 60);
@@ -81,7 +81,7 @@ var
   point: TPoint;
   v: ISnapshotBlock;
   sbp: TContent;
-  plan: TPlan;
+  plan: TMemberPlan;
 begin
   if proofHash <> blocks[0].Hash then
   begin
@@ -244,7 +244,7 @@ var
   point: TPoint;
   stime, etime: TDateTime;
 begin
-  Tuple.Create(value, ok) := FPeriods.Get(index);
+  ok := FPeriods.Get(TValue.From(index), value);
   if not ok or (value = nil) then
   begin
     Tuple.Create(stime, etime) := Index2Time(index);
@@ -279,7 +279,7 @@ end;
 
 function TPeriodLinkedArray.Set(index: UInt64; block: TPoint): Error;
 begin
-  FPeriods.Add(index, block);
+  FPeriods.Add(TValue.From(index), block);
   Result := nil;
 end;
 

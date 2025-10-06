@@ -11,7 +11,7 @@ uses
 type
   TConsensusSubscriber = class(TInterfacedObject, ISubscribeTrigger)
   public
-    procedure Subscribe(gid: TGid; id: string; addr: PAddress; fn: TEventFunc);
+    procedure Subscribe(gid: TGid; id: string; addr: PAddress; fn: TConsensusEventFunc);
     procedure UnSubscribe(gid: TGid; id: string);
     procedure SubscribeProducers(gid: TGid; id: string; fn: TProducersEventFunc);
     procedure TriggerMineEvent(addr: TAddress): Error;
@@ -23,7 +23,7 @@ implementation
 
 { TConsensusSubscriber }
 
-procedure TConsensusSubscriber.Subscribe(gid: TGid; id: string; addr: PAddress; fn: TEventFunc);
+procedure TConsensusSubscriber.Subscribe(gid: TGid; id: string; addr: PAddress; fn: TConsensusEventFunc);
 begin
   // Placeholder
 end;

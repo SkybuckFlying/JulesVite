@@ -1,45 +1,49 @@
-{
-  This unit is a temporary placeholder for the Go 'vm/intpool' package.
-  It provides a minimal TIntPool class to allow the conversion of dependent units.
-}
 unit V.VM.IntPool;
 
 interface
 
 uses
-  System.SysUtils, System.Numerics;
+  System.SysUtils,
+  System.Generics.Collections,
+  Go.Big;
 
 type
   TIntPool = class
+  private
+    FPool: TObjectPool<TObject>; // TObject is a placeholder for a pooled BigInt wrapper
   public
-    function Get: TBigInteger;
-    function GetZero: TBigInteger;
-    procedure Put(var Ints: array of TBigInteger);
+    constructor Create;
+    destructor Destroy; override;
+    function Get: IBigInt;
+    procedure Put(i: IBigInt);
   end;
 
 implementation
 
 { TIntPool }
 
-function TIntPool.Get: TBigInteger;
+constructor TIntPool.Create;
 begin
-  Result := TBigInteger.Zero;
+  // In a real implementation, the pool would be initialized here.
+  // For now, this is a placeholder.
 end;
 
-function TIntPool.GetZero: TBigInteger;
+destructor TIntPool.Destroy;
 begin
-  Result := TBigInteger.Zero;
+  // FPool.Free;
+  inherited;
 end;
 
-procedure TIntPool.Put(var Ints: array of TBigInteger);
-var
-  i: Integer;
+function TIntPool.Get: IBigInt;
 begin
-  for i := 0 to High(Ints) do
-  begin
-    // In a real pool, we would return the object to the pool.
-    // For this placeholder, we do nothing.
-  end;
+  // var obj := FPool.GetObject;
+  // Result := obj as IBigInt;
+  Result := TBigInt.New; // Simplified for now
+end;
+
+procedure TIntPool.Put(i: IBigInt);
+begin
+  // FPool.PutObject(i as TObject);
 end;
 
 end.

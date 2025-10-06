@@ -18,6 +18,7 @@ type
     function GetConfirmedBalanceList(addrList: TArray<TAddress>; tokenId: TTokenTypeId; sbHash: THash): TTuple<TDictionary<TAddress, IBigInt>, Error>;
     function GetSnapshotHeaderBeforeTime(timestamp: TDateTime): TTuple<ISnapshotBlock, Error>;
     function GetSnapshotBlockByHeight(height: UInt64): TTuple<ISnapshotBlock, Error>;
+    function GetGenesisSnapshotBlock: ISnapshotBlock; // Added this based on usage in snapshot.pas
   end;
 
 function CalVotes(info: TConsensusGroupInfo; hash: THash; rw: IStateCh): TTuple<TArray<PVote>, Error>;
@@ -97,10 +98,11 @@ end;
 function ConvertVoteToAddress(votes: TArray<PVote>): TArray<TAddress>;
 var
   v: PVote;
+  i: Integer;
 begin
   SetLength(Result, Length(votes));
-  for v in votes do
-    Result := Result + [v.Addr];
+  for i := 0 to High(votes) do
+    Result[i] := votes[i].Addr;
 end;
 
 end.
