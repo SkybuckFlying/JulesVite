@@ -7,136 +7,191 @@ uses
   System.Generics.Collections;
 
 type
-  ILRUCache = interface
-    ['{F0B1C2D3-E4F5-4A8B-9C8D-7E6F5A4B3C2D}']
-    function Get(const Key: TValue): TObject;
-    procedure Add(const Key: TValue; Value: TObject);
-    function Contains(const Key: TValue): Boolean;
-    procedure Remove(const Key: TValue);
-    function Count: Integer;
-    function GetValue(const Key: TValue): TObject;
-    procedure SetValue(const Key: TValue; const Value: TObject);
-    property Items[const Key: TValue]: TObject read GetValue write SetValue; default;
+  { Doubly-linked list node for the LRU cache }
+  TLRUNode<TKey, TValue> = class
+  public
+    Key: TKey;
+    Value: TValue;
+    Prev, Next: TLRUNode<TKey, TValue>;
   end;
 
-  TLRUCache = class(TInterfacedObject, ILRUCache)
+  { ILRUCache interface }
+  ILRUCache<TKey, TValue> = interface
+    ['{E7B5A3C1-D8E6-4F5A-8B4A-7A5D8D3C4B8B}']
+    function Get(const Key: TKey): TValue;
+    procedure Put(const Key: TKey; const Value: TValue);
+    function Contains(const Key: TKey): Boolean;
+    procedure Remove(const Key: TKey);
+    function Count: Integer;
+    function Size: Integer;
+    procedure Clear;
+    function GetValue(const Key: TKey): TValue;
+    procedure SetValue(const Key: TKey; const Value: TValue);
+    property Items[const Key: TKey]: TValue read GetValue write SetValue; default;
+  end;
+
+  { TLRUCache class - A generic LRU cache implementation }
+  TLRUCache<TKey, TValue> = class(TInterfacedObject, ILRUCache<TKey, TValue>)
   private
-    FDictionary: TDictionary<TValue, TObject>;
-    FQueue: TQueue<TValue>;
+    FDictionary: TDictionary<TKey, TLRUNode<TKey, TValue>>;
+    FHead, FTail: TLRUNode<TKey, TValue>;
     FSize: Integer;
-    function GetValue(const Key: TValue): TObject;
-    procedure SetValue(const Key: TValue; const Value: TObject);
+    procedure MoveToFront(Node: TLRUNode<TKey, TValue>);
+    procedure RemoveNode(Node: TLRUNode<TKey, TValue>);
+    function GetValue(const Key: TKey): TValue;
+    procedure SetValue(const Key: TKey; const Value: TValue);
   public
     constructor Create(ASize: Integer);
     destructor Destroy; override;
-    function Get(const Key: TValue): TObject;
-    procedure Add(const Key: TValue; const Value: TObject);
-    function Contains(const Key: TValue): Boolean;
-    procedure Remove(const Key: TValue);
+    function Get(const Key: TKey): TValue;
+    procedure Put(const Key: TKey; const Value: TValue);
+    function Contains(const Key: TKey): Boolean;
+    procedure Remove(const Key: TKey);
     function Count: Integer;
+    function Size: Integer;
+    procedure Clear;
   end;
 
-function NewLRU(Size: Integer): TTuple<ILRUCache, Error>;
+function NewLRU(Size: Integer): TTuple<ILRUCache<TValue, TObject>, Error>;
 
 implementation
 
 { TLRUCache }
 
-constructor TLRUCache.Create(ASize: Integer);
+constructor TLRUCache<TKey, TValue>.Create(ASize: Integer);
 begin
   if ASize <= 0 then
     raise EArgumentException.Create('Size must be greater than 0');
   inherited Create;
   FSize := ASize;
-  FDictionary := TDictionary<TValue, TObject>.Create;
-  FQueue := TQueue<TValue>.Create;
+  FDictionary := TDictionary<TKey, TLRUNode<TKey, TValue>>.Create;
+  FHead := nil;
+  FTail := nil;
 end;
 
-destructor TLRUCache.Destroy;
+destructor TLRUCache<TKey, TValue>.Destroy;
 begin
+  Clear;
   FDictionary.Free;
-  FQueue.Free;
   inherited Destroy;
 end;
 
-function TLRUCache.Get(const Key: TValue): TObject;
-var
-  value: TObject;
+procedure TLRUCache<TKey, TValue>.MoveToFront(Node: TLRUNode<TKey, TValue>);
 begin
-  if FDictionary.TryGetValue(Key, value) then
-  begin
-    // Move to front (most recently used)
-    // This simple implementation doesn't reorder on get, a full one would.
-    Result := value;
-  end
-  else
-    Result := nil;
+  if Node = FHead then
+    Exit; // Already at the front
+
+  RemoveNode(Node);
+
+  Node.Next := FHead;
+  if FHead <> nil then
+    FHead.Prev := Node;
+  FHead := Node;
+  Node.Prev := nil;
+
+  if FTail = nil then
+    FTail := FHead;
 end;
 
-function TLRUCache.GetValue(const Key: TValue): TObject;
+procedure TLRUCache<TKey, TValue>.RemoveNode(Node: TLRUNode<TKey, TValue>);
+begin
+  if Node.Prev <> nil then
+    Node.Prev.Next := Node.Next
+  else
+    FHead := Node.Next;
+
+  if Node.Next <> nil then
+    Node.Next.Prev := Node.Prev
+  else
+    FTail := Node.Prev;
+end;
+
+function TLRUCache<TKey, TValue>.Get(const Key: TKey): TValue;
+var
+  Node: TLRUNode<TKey, TValue>;
+begin
+  if FDictionary.TryGetValue(Key, Node) then
+  begin
+    MoveToFront(Node);
+    Result := Node.Value;
+  end
+  else
+    Result := Default(TValue);
+end;
+
+procedure TLRUCache<TKey, TValue>.Put(const Key: TKey; const Value: TValue);
+var
+  Node: TLRUNode<TKey, TValue>;
+begin
+  if FDictionary.TryGetValue(Key, Node) then
+  begin
+    Node.Value := Value;
+    MoveToFront(Node);
+  end
+  else
+  begin
+    if FDictionary.Count >= FSize then
+    begin
+      // Evict least recently used (tail)
+      FDictionary.Remove(FTail.Key);
+      RemoveNode(FTail);
+    end;
+
+    Node := TLRUNode<TKey, TValue>.Create;
+    Node.Key := Key;
+    Node.Value := Value;
+    FDictionary.Add(Key, Node);
+    MoveToFront(Node); // This will add it to the front
+  end;
+end;
+
+function TLRUCache<TKey, TValue>.GetValue(const Key: TKey): TValue;
 begin
   Result := Get(Key);
 end;
 
-procedure TLRUCache.Add(const Key: TValue; const Value: TObject);
+procedure TLRUCache<TKey, TValue>.SetValue(const Key: TKey; const Value: TValue);
 begin
-  if FDictionary.ContainsKey(Key) then
-  begin
-    FDictionary[Key] := Value;
-    // Move to front
-    exit;
-  end;
-
-  if FQueue.Count >= FSize then
-  begin
-    // Evict least recently used
-    FDictionary.Remove(FQueue.Dequeue);
-  end;
-
-  FDictionary.Add(Key, Value);
-  FQueue.Enqueue(Key);
+  Put(Key, Value);
 end;
 
-procedure TLRUCache.SetValue(const Key: TValue; const Value: TObject);
-begin
-  Add(Key, Value);
-end;
-
-function TLRUCache.Contains(const Key: TValue): Boolean;
+function TLRUCache<TKey, TValue>.Contains(const Key: TKey): Boolean;
 begin
   Result := FDictionary.ContainsKey(Key);
 end;
 
-procedure TLRUCache.Remove(const Key: TValue);
+procedure TLRUCache<TKey, TValue>.Remove(const Key: TKey);
 var
-  newQueue: TQueue<TValue>;
-  item: TValue;
+  Node: TLRUNode<TKey, TValue>;
 begin
-  if FDictionary.ContainsKey(Key) then
+  if FDictionary.TryGetValue(Key, Node) then
   begin
+    RemoveNode(Node);
     FDictionary.Remove(Key);
-    // This is inefficient. A real implementation would use a different structure.
-    newQueue := TQueue<TValue>.Create;
-    while FQueue.Count > 0 do
-    begin
-      item := FQueue.Dequeue;
-      if not TValue.Equals(item, Key) then
-        newQueue.Enqueue(item);
-    end;
-    FQueue.Free;
-    FQueue := newQueue;
   end;
 end;
 
-function TLRUCache.Count: Integer;
+function TLRUCache<TKey, TValue>.Count: Integer;
 begin
   Result := FDictionary.Count;
 end;
 
-function NewLRU(Size: Integer): TTuple<ILRUCache, Error>;
+function TLRUCache<TKey, TValue>.Size: Integer;
+begin
+  Result := FSize;
+end;
+
+procedure TLRUCache<TKey, TValue>.Clear;
+begin
+  FDictionary.Clear;
+  FHead := nil;
+  FTail := nil;
+end;
+
+function NewLRU(Size: Integer): TTuple<ILRUCache<TValue, TObject>, Error>;
 begin
   try
-    Result := TTuple.Create(TLRUCache.Create(Size) as ILRUCache, nil);
+    Result := TTuple.Create(TLRUCache<TValue, TObject>.Create(Size) as ILRUCache<TValue, TObject>, nil);
   except
     on E: Exception do
       Result := TTuple.Create(nil, E);

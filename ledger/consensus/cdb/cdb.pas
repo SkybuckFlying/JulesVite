@@ -78,6 +78,27 @@ uses
   System.Classes,
   Go.LevelDB.Util;
 
+function MergeMap(m1, m2: TDictionary<TAddress, TContent>): TDictionary<TAddress, TContent>;
+var
+  result: TDictionary<TAddress, TContent>;
+  pair: TPair<TAddress, TContent>;
+  c: TContent;
+begin
+  result := TDictionary<TAddress, TContent>.Create;
+  for pair in m1 do
+    result.Add(pair.Key, pair.Value.Copy);
+
+  for pair in m2 do
+  begin
+    if not result.TryGetValue(pair.Key, c) then
+      result.Add(pair.Key, pair.Value.Copy)
+    else
+      c.Merge(pair.Value);
+  end;
+  Result := result;
+end;
+
+
 function BytesToAddrArr(byt: TBytes): TArray<TAddress>;
 var
   size, i: Integer;
@@ -166,7 +187,7 @@ begin
   end;
 
   PrevHash := p.PrevHash;
-  // Sbps := MergeMap(Sbps, p.Sbps); // TODO: Implement MergeMap
+  Sbps := MergeMap(Sbps, p.Sbps);
   Result := nil;
 end;
 
@@ -234,7 +255,7 @@ begin
   end;
 
   Hash := p.Hash;
-  // Sbps := MergeMap(Sbps, p.Sbps); // TODO: Implement MergeMap
+  Sbps := MergeMap(Sbps, p.Sbps);
   Result := nil;
 end;
 
