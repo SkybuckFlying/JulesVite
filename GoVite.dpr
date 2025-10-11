@@ -147,12 +147,11 @@ uses
   Go.Rand in 'go/math/rand/rand.pas',
   Go.LevelDB.Util in 'go/leveldb/util/util.pas',
   Go.LevelDB in 'go/leveldb/leveldb.pas',
-  V.Net.Interface in 'net/interface.pas';
+  V.Net.Interface in 'net/interface.pas',
+  protobuf in 'protobuf.pas';
 
 begin
   try
-    // This is a placeholder for the main program logic.
-    // For now, it just demonstrates that the unit can be included.
     Writeln('Delphi project file created.');
   except
     on E: Exception do
