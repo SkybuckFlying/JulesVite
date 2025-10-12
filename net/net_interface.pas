@@ -1,4 +1,4 @@
-unit V.Net.Interface;
+unit V.Net.NetIntf;
 
 interface
 
@@ -8,7 +8,7 @@ uses
   V.Net.Peer;
 
 type
-  INet = interface
+  INetIntf = interface
     ['{D0E1F2A3-B4C5-4384-9586-777253445678}']
     // This is another placeholder for a network interface, likely a more
     // specific or internal one compared to the one in V.Net.Net.

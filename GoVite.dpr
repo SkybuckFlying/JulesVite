@@ -110,7 +110,7 @@ uses
   V.Ledger.Chain.Cache in 'ledger/chain/cache/cache.pas',
   V.Ledger.Chain.Genesis in 'ledger/chain/genesis/genesis.pas',
   V.Ledger.Chain.SyncCache in 'ledger/chain/sync_cache/sync_cache.pas',
-  V.Ledger.Chain.Interface in 'ledger/chain/interface.pas',
+  V.Ledger.Chain.ChainIntf in 'ledger/chain/chain_interface.pas',
   V.VM.Quota in 'vm/quota/quota.pas',
   V.VM in 'vm/vm.pas',
   V.Ledger.Consensus.Result in 'ledger/consensus/result.pas',
@@ -147,7 +147,7 @@ uses
   Go.Rand in 'go/math/rand/rand.pas',
   Go.LevelDB.Util in 'go/leveldb/util/util.pas',
   Go.LevelDB in 'go/leveldb/leveldb.pas',
-  V.Net.Interface in 'net/interface.pas',
+  V.Net.NetIntf in 'net/net_interface.pas';
   protobuf in 'protobuf.pas';
 
 begin

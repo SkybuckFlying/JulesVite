@@ -1,4 +1,4 @@
-unit V.Ledger.Chain.Interface;
+unit V.Ledger.Chain.ChainIntf;
 
 interface
 
@@ -18,9 +18,6 @@ uses
   V.VM.Contracts.Dex;
 
 type
-  // Forward declaration
-  IChain = interface;
-
   IConsensus = interface
     ['{A1B2C3D4-E5F6-4A8B-9C8D-7E6F5A4B3C2D}']
     function VerifyAccountProducer(Block: PAccountBlock): Boolean;
@@ -28,7 +25,7 @@ type
     function VerifyABsProducer(const Abs: TDictionary<TGid, TArray<IAccountBlock>>): TArray<IAccountBlock>;
   end;
 
-  IChain = interface
+  IChainIntf = interface
     ['{B2C3D4E5-F6A7-4B8C-AD9E-8F706B5C4D3E}']
     // Lifecycle
     procedure Init;

@@ -4,10 +4,10 @@ interface
 
 uses
   System.SysUtils,
-  V.Net.Interface;
+  V.Net.NetIntf;
 
 type
-  TMockNet = class(TInterfacedObject, INet)
+  TMockNet = class(TInterfacedObject, INetIntf)
     // This is a placeholder for a mock network implementation, used for testing.
   public
     // INet methods - placeholders

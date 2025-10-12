@@ -4,10 +4,10 @@ interface
 
 uses
   System.SysUtils,
-  V.Ledger.Chain.Interface;
+  V.Ledger.Chain.ChainIntf;
 
 type
-  TMockChain = class(TInterfacedObject, IChain)
+  TMockChain = class(TInterfacedObject, IChainIntf)
     // This is a placeholder for a mock chain implementation, used for testing.
     // All methods from IChain would need to be implemented here.
   public

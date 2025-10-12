@@ -13,8 +13,8 @@ uses
   V.RPCAPI,
   V.Pow,
   V.Cmd.Utils.Flock,
-  V.Net.Interface,
-  V.Ledger.Chain.Interface;
+  V.Net.NetIntf,
+  V.Ledger.Chain.ChainIntf;
 
 type
   INode = interface
@@ -30,8 +30,8 @@ type
   private
     FConfig: TNodeConfig;
     FLock: IFlock;
-    FNet: INet;
-    FChain: IChain;
+    FNet: INetIntf;
+    FChain: IChainIntf;
     FRpcServer: IServer;
     FViteService: IViteService;
   public

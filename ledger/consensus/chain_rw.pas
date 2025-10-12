@@ -21,9 +21,10 @@ uses
   V.Ledger.Pool.Lock,
   V.LRU,
   V.Log15,
-  V.Ledger.Chain.Interface;
+  V.Ledger.Chain.ChainIntf;
 
 type
+  IChain = V.Ledger.Chain.ChainIntf.IChainIntf;
   // Forward declaration
   ISnapshotCs = interface;
 
